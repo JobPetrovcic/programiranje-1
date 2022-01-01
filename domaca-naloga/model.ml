@@ -100,6 +100,21 @@ let grid_of_string cell_of_char str =
 
 (* Model za vhodne probleme *)
 
+let get_my_box ((x, y) : (int * int)) grid = get_box grid ((x/3) * 3 + y/3)
+let get_my_row ((x, y) : (int * int)) grid = get_row grid x
+let get_my_column ((x, y) : (int * int)) grid = get_column grid y
+
+(* Funkcija skopirana iz https://stackoverflow.com/questions/21674947/ocaml-deoptionalize-a-list-is-there-a-simpler-way *)
+let deoptionalize l =
+  let rec deopt acc = function
+    | [] -> List.rev acc
+    | None::tl -> deopt acc tl
+    | Some x::tl -> deopt (x::acc) tl
+  in 
+  deopt [] l
+
+let filled_adj (loc : (int * int)) (grid : int option grid) = deoptionalize (Array.to_list (Array.concat [get_my_box loc grid; get_my_row loc grid; get_my_column loc grid]))
+
 type problem = { initial_grid : int option grid }
 
 let print_problem problem : unit = print_grid (function None -> " " | Some digit -> string_of_int digit) problem.initial_grid
