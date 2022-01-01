@@ -23,13 +23,15 @@ let find_and_display_solution (problem : Model.problem) =
   Printf.printf "\n%!";
   let response, elapsed_time = find_solution problem in
   display_solution response;
-  Printf.printf "Čas reševanja: %f s.\n%!" elapsed_time
+  Printf.printf "Čas reševanja: %f s.\n%!" elapsed_time;
+  elapsed_time
 
 let () =
   (* Če se program sesuje, nam to izpiše klicni sklad. *)
   Printexc.record_backtrace true;
   (* Tabela sistemskih argumentov vsebuje ime klicanega programa ter argumente, ki mu sledijo *)
-  Sys.argv
+  
+  Printf.printf "Skupen čas reševanja: %f s.\n%!" (Sys.argv
   (* Tabelo pretvorimo v seznam *)
   |> Array.to_list
   (* Odstranimo prvi element (ime klicanega programa), da dobimo seznam imen datotek *)
@@ -37,7 +39,8 @@ let () =
   (* Iz vsake datoteke preberemo problem *)
   |> List.map read_problem
   (* Probleme zaporedoma rešimo *)
-  |> List.iter find_and_display_solution
+  |> List.map find_and_display_solution
+  |> List.fold_left (+.) 0.)
 
 (* Če domačo nalogo rešujete prek spletnega vmesnika, ki ne podpira branja datotek,
    lahko delovanje preizkušate prek spodnjega programa. *)
