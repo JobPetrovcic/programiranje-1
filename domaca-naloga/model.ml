@@ -43,22 +43,27 @@ let print_grid string_of_cell grid =
 
 (* Funkcije za dostopanje do elementov mreže *)
 
-let get_row (grid : 'a grid) (row_ind : int) = failwith "TODO"
+let get_row (grid : 'a grid) (row_ind : int) = 
+  Array.init 9 (fun col_ind -> grid.(row_ind).(col_ind))
 
-let rows grid = failwith "TODO"
+let rows grid = List.init 9 (get_row grid)
 
 let get_column (grid : 'a grid) (col_ind : int) =
   Array.init 9 (fun row_ind -> grid.(row_ind).(col_ind))
 
 let columns grid = List.init 9 (get_column grid)
 
-let get_box (grid : 'a grid) (box_ind : int) = failwith "TODO"
+let get_box (grid : 'a grid) (box_ind : int) =
+ Array.init 9 (fun square_ind -> grid.((box_ind/3) * 3 + (square_ind)/3).((box_ind mod 3) * 3 + (square_ind mod 3)))
 
-let boxes grid = failwith "TODO"
+let boxes grid = List.init 9 (get_box grid)
 
 (* Funkcije za ustvarjanje novih mrež *)
 
-let map_grid (f : 'a -> 'b) (grid : 'a grid) : 'b grid = failwith "TODO"
+(*let map_grid_xy (f : int -> int -> 'a -> 'b) (grid : 'a grid) : 'b grid = 
+  Array.init 9 (fun row_ind -> (Array.init 9 (fun col_ind -> (f row_ind col_ind (grid.(row_ind).(col_ind))))))*)
+let map_grid (f : 'a -> 'b) (grid : 'a grid) : 'b grid = Array.init 9 (fun row_ind -> (Array.init 9 (fun col_ind -> (f (grid.(row_ind).(col_ind))))))
+
 
 let copy_grid (grid : 'a grid) : 'a grid = map_grid (fun x -> x) grid
 
@@ -97,7 +102,7 @@ let grid_of_string cell_of_char str =
 
 type problem = { initial_grid : int option grid }
 
-let print_problem problem : unit = failwith "TODO"
+let print_problem problem : unit = print_grid (function None -> " " | Some digit -> string_of_int digit) problem.initial_grid
 
 let problem_of_string str =
   let cell_of_char = function
@@ -111,6 +116,48 @@ let problem_of_string str =
 
 type solution = int grid
 
-let print_solution solution = failwith "TODO"
+let print_solution (sol: solution) = print_grid string_of_int sol
 
-let is_valid_solution problem solution = failwith "TODO"
+(* Predpostvka, da so elementi od 1 do 9. 
+Imamo tri možnosti: 
+- O(n): inicializiramo nov array, in preštejemo koliko je vsakega elementa,
+- O(n log n) sortiramo array nato preverimo arr.(i)=i+1,
+- O(n^2) pregledamo pare elementov arr.(i)!=arr.(j),
+
+ker je n=9, je težko teoretično ugotoviti, katera je najboljša, saj je za tako majhne n-je konstanta pomembna in je odvisna
+od naše in Ocamlove implementacije.
+*)
+
+let is_permutation (arr : int array) : bool = 
+  let cnt = Array.init 10 (fun x-> 0) in
+  let rec aux ind =
+    if (ind=9) then true
+    else if cnt.(arr.(ind))=0 then (
+      cnt.(arr.(ind)) <- 1;
+      aux (ind+1)
+    )
+    else false
+  in aux 0
+
+let rec check_list_of_arrays lst=
+  match lst with
+  | [] -> true
+  | (arr :: rep) -> if (is_permutation arr) then check_list_of_arrays rep else false
+
+let is_sub (initial : int option array) (final : int array)=
+  let rec aux ind =
+    if ind=9 then true
+    else if (initial.(ind)=None) then true
+    else if (initial.(ind)=Some (final.(ind))) then true
+    else false
+  in aux 0
+
+let rec is_sub_list initial final =
+  match (initial, final) with
+  | ([], []) -> true
+  | (p1 :: rep1, p2 :: rep2) -> if (is_sub p1 p2) then is_sub_list rep1 rep2 else false
+  | _ -> failwith "Pri preverjanju, da je rešitev res izpeljana iz začetne mreže je prišlo do napake."
+
+let is_valid_solution problem solution = 
+  let initial_rs = rows problem.initial_grid and rs= rows solution and bs = boxes solution and cs=columns solution 
+  in (is_sub_list initial_rs rs && check_list_of_arrays rs && check_list_of_arrays bs && check_list_of_arrays cs)
