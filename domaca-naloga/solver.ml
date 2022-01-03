@@ -11,7 +11,7 @@ let print_state (state : state) : unit =
   let rec aux lst =
     match lst with
     | [] -> ()
-    | a :: other -> (let (x, y) =a.loc in Printf.printf "%d %d :" x y; List.iter (Printf.printf "%d ") a.possible;Printf.printf "\n";aux other)
+    | a :: other -> (let (x, y) = a.loc in Printf.printf "%d %d :" x y; List.iter (Printf.printf "%d ") a.possible;Printf.printf "\n";aux other)
   in
   aux state.unfilled
 
@@ -28,12 +28,52 @@ let get_options grid =
   in aux 0 0 grid
 
 let clean_state (state : state) : state =
-  let cmp (a : available) (b : available) : int =
-    let sa = List.length a.possible and sb = List.length b.possible in
-    if sa == sb then 0
-    else if sa > sb then 1
+  let cmp_int a b =
+    if a == b then 0
+    else if a > b then 1
     else -1
   in
+  let cmp_available (a : available) (b : available) : int =
+    let sa = List.length a.possible and sb = List.length b.possible in
+    cmp_int sa sb
+  in
+  (*let rec isin el lst = 
+    match lst with
+    | [] -> false
+    | a:: tail -> (
+        if el < a then false
+        else if(a=el) then true 
+        else isin el tail)
+  in
+  let rec clean_list lst forbidden =
+    let sorted_forbidden = List.sort cmp_int forbidden in
+    let rec aux l f =
+      match l with
+      | [] -> []
+      | a :: tail -> if isin a f then aux tail f else a :: aux tail f
+    in
+    aux lst sorted_forbidden
+   
+  Uporabimo izboljšavo 2 kazalcev (2 pointer), ki iz O(n * m) spremeni v O(n log n + m log m). A zaradi manjhnih številk se izkaže da v praksi
+  deluje slabše kot O(n * m). Moje meritve pokažejo poslabšanje iz 0.85 s v 1.3 s.
+
+  let rec clean_list lst forbidden = 
+    let sorted_lst = List.sort cmp_int lst and sorted_forbidden = List.sort cmp_int forbidden
+    in
+    let rec aux l f =
+      match f with 
+      | [] -> l
+      | f_el :: other_f -> (
+        match l with
+        | [] -> []
+        | l_el :: other_l -> (
+          if l_el > f_el then aux l other_f
+          else if l_el = f_el then aux other_l f
+          else  l_el :: (aux other_l f)
+        )
+      )
+    in
+    aux sorted_lst sorted_forbidden *)
   let rec isin el lst = 
     match lst with
     | [] -> false
@@ -51,7 +91,7 @@ let clean_state (state : state) : state =
       let forbidden = Model.filled_adj av.loc state.current_grid in
       {loc = av.loc; possible=(clean_list av.possible forbidden)} :: aux other_unfilled)
   in
-  {problem = state.problem; current_grid = state.current_grid; unfilled = List.sort cmp (aux state.unfilled)}
+  {problem = state.problem; current_grid = state.current_grid; unfilled = List.sort cmp_available (aux state.unfilled)}
 
 let initialize_state (problem : Model.problem) : state =
   clean_state { current_grid = Model.copy_grid problem.initial_grid; problem; unfilled = get_options problem.initial_grid}
