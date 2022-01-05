@@ -37,7 +37,9 @@ let clean_state (state : state) : state =
     let sa = List.length a.possible and sb = List.length b.possible in
     cmp_int sa sb
   in
-  (*let rec isin el lst = 
+  (* Neuspešen poskus optimizacije
+  
+  let rec isin el lst = 
     match lst with
     | [] -> false
     | a:: tail -> (
@@ -84,11 +86,72 @@ let clean_state (state : state) : state =
     | [] -> []
     | a :: tail -> if isin a forbidden then clean_list tail forbidden else a :: clean_list tail forbidden
   in
+  let forbidden_thermo_lower (loc : int * int) (thermo_lst : (int * int) list list) =
+    
+    let rec lower_bound loc lst_lst =
+      let rec lower_bound_lst list=
+        match list with
+        | a:: b :: tail -> (
+          let (x, y) = a in
+          if b=loc then state.current_grid.(x).(y)
+          else lower_bound_lst (b :: tail)
+        )
+        | _ -> None
+      in
+      match lst_lst with
+      | [] -> None
+      | a :: tail -> (
+        match lower_bound loc tail with
+        | None -> lower_bound_lst a
+        | Some(lb) -> (match lower_bound_lst a with
+          | None -> Some(lb)
+          | Some(x) -> Some(if lb > x then lb else x)
+        ) 
+      )
+    in
+    lower_bound loc thermo_lst
+  and forbidden_thermo_upper (loc : int * int) (thermo_lst : (int * int) list list) =
+    let rec upper_bound loc lst_lst =
+      let rec upper_bound_lst list=
+        match list with
+        | a:: b :: tail -> (
+          let (x, y) = b in
+          if a=loc then state.current_grid.(x).(y)
+          else upper_bound_lst (b :: tail)
+        )
+        | _ -> None
+      in
+      match lst_lst with
+      | [] -> None
+      | a :: tail -> (
+        match upper_bound loc tail with
+        | None -> upper_bound_lst a
+        | Some(ub) -> (match upper_bound_lst a with
+          | None -> Some(ub)
+          | Some(x) -> Some(if ub < x then ub else x)
+        ) 
+      )
+    in
+    upper_bound loc thermo_lst
+  in
   let rec aux (unfilled : available list) =
     match unfilled with 
     | [] -> []
     | av :: other_unfilled -> (
-      let forbidden = Model.filled_adj av.loc state.current_grid in
+      let forbid_lower lb =
+        match lb with
+        | None -> []
+        | Some(lower) -> List.init lower (fun x -> x+1)
+      and forbid_upper ub =
+        match ub with
+        | None -> []
+        | Some(upper) -> List.init (10-upper) (fun x -> x+upper)
+      in
+      let forbidden = (
+        if (List.length state.problem.thermo) > 0 then List.concat [(Model.filled_adj av.loc state.current_grid); forbid_lower (forbidden_thermo_lower av.loc state.problem.thermo);forbid_upper (forbidden_thermo_upper av.loc state.problem.thermo)]
+        else Model.filled_adj av.loc state.current_grid
+      )
+      in
       {loc = av.loc; possible=(clean_list av.possible forbidden)} :: aux other_unfilled)
   in
   {problem = state.problem; current_grid = state.current_grid; unfilled = List.sort cmp_available (aux state.unfilled)}
