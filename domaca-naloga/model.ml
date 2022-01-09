@@ -252,6 +252,54 @@ let rec is_sub_list initial final =
   | (p1 :: rep1, p2 :: rep2) -> if (is_sub p1 p2) then is_sub_list rep1 rep2 else false
   | _ -> failwith "Pri preverjanju, da je rešitev res izpeljana iz začetne mreže je prišlo do napake."
 
+
+let valid_thermo solution thermo =
+  let rec is_increasing lst =
+    match lst with
+    | a :: b :: tail -> (
+      let (xa, ya)= a and (xb, yb) = b in
+      if solution.(xa).(ya) < solution.(xb).(yb) then is_increasing (b :: tail)
+      else false
+      
+    )
+    | _ -> true
+  in
+  let rec aux lst_lst =
+    match lst_lst with
+    | [] -> true
+    | a :: tail ->(
+      if is_increasing a then aux tail
+      else false
+    ) 
+  in aux thermo
+
+let valid_arrows solution arrows =
+  let rec get_sum lst =
+    match lst with
+    | [] -> 0
+    | a :: tail -> let (x, y) =a in solution.(x).(y) + get_sum tail
+  in
+  let rec is_sum arrow =
+    let (par, chs) = arrow 
+    in
+    let (x, y) = par
+    in
+    get_sum chs = solution.(x).(y)
+  in
+  let rec aux lst_lst =
+    match lst_lst with
+    | [] -> true
+    | a :: tail ->(
+      if is_sum a then aux tail
+      else false
+    ) 
+  in aux arrows
+
 let is_valid_solution problem solution = 
   let initial_rs = rows problem.initial_grid and rs= rows solution and bs = boxes solution and cs=columns solution 
-  in (is_sub_list initial_rs rs && check_list_of_arrays rs && check_list_of_arrays bs && check_list_of_arrays cs)
+  in 
+  let valid_basic = (is_sub_list initial_rs rs && check_list_of_arrays rs && check_list_of_arrays bs && check_list_of_arrays cs)
+  in
+  if List.length problem.thermo > 0 then valid_basic && valid_thermo solution problem.thermo
+  else if List.length problem.arrows > 0 then valid_basic && valid_arrows solution problem.arrows
+  else valid_basic
