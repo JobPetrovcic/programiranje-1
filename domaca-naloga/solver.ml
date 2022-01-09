@@ -86,8 +86,16 @@ let clean_state (state : state) : state =
     | [] -> []
     | a :: tail -> if isin a forbidden then clean_list tail forbidden else a :: clean_list tail forbidden
   in
-  let forbidden_thermo_lower (loc : int * int) (thermo_lst : (int * int) list list) =
-    
+  let forbid_lower lb =
+    match lb with
+    | None -> []
+    | Some(lower) -> if lower<1 then [] else if lower<=9 then List.init lower (fun x -> x+1) else alloptions
+  and forbid_upper ub =
+    match ub with
+    | None -> []
+    | Some(upper) -> if upper>9 then [] else if upper>=1 then List.init (10-upper) (fun x -> x+upper) else alloptions
+  in
+  let forbidden_thermo_lower (loc : int * int) =
     let rec lower_bound loc lst_lst =
       let rec lower_bound_lst list=
         match list with
@@ -109,8 +117,8 @@ let clean_state (state : state) : state =
         ) 
       )
     in
-    lower_bound loc thermo_lst
-  and forbidden_thermo_upper (loc : int * int) (thermo_lst : (int * int) list list) =
+    lower_bound loc state.problem.thermo
+  and forbidden_thermo_upper (loc : int * int)  =
     let rec upper_bound loc lst_lst =
       let rec upper_bound_lst list=
         match list with
@@ -132,23 +140,67 @@ let clean_state (state : state) : state =
         ) 
       )
     in
-    upper_bound loc thermo_lst
+    upper_bound loc state.problem.thermo
+  in
+  let forbidden_thermo (loc : int * int) =
+    List.concat[forbid_lower (forbidden_thermo_lower loc);forbid_upper (forbidden_thermo_upper loc)]
+  in
+  let rec count_filled lst =
+    match lst with 
+    | [] -> 0
+    | a :: tail -> (
+      let (x, y) = a in
+      match state.current_grid.(x).(y) with
+      | None -> count_filled tail
+      | Some(num) -> 1 + count_filled tail
+    )
+  and sum_filled lst =
+    match lst with 
+    | [] -> 0
+    | a :: tail -> (
+      let (x, y) = a in
+      match state.current_grid.(x).(y) with
+      | None -> sum_filled tail
+      | Some(num) -> num + sum_filled tail
+    )
+  in
+  let forbidden_arrows (loc : int * int) =
+    let only_one num =
+      if 1<=num && num<=9 then List.init 8 (fun x -> if x+1<num then x+1 else x+2)
+      else alloptions
+    in
+    let check_arrow arrow =
+      let (par, chs) = arrow in 
+      let (x, y) = par in
+      let count_chs = List.length chs and count_chs_filled = count_filled chs and chs_sum = sum_filled chs in
+      if par=loc then (
+        if count_chs = count_chs_filled then (only_one chs_sum)
+        else (forbid_lower (Some(chs_sum)))
+      )
+      else if (isin loc chs) then (
+        match state.current_grid.(x).(y) with
+        | None -> forbid_upper (Some( 10-chs_sum))
+        | Some(num) -> (
+          if count_chs = count_chs_filled+1 then (only_one (num-chs_sum))
+          else forbid_upper (Some(num-chs_sum))
+        )
+      )
+      else []
+    in
+    let rec aux arrow_lst =
+      match arrow_lst with
+      | [] -> []
+      | a :: tail -> List.concat [aux tail; check_arrow a]
+        
+    in aux state.problem.arrows
   in
   let rec aux (unfilled : available list) =
     match unfilled with 
     | [] -> []
     | av :: other_unfilled -> (
-      let forbid_lower lb =
-        match lb with
-        | None -> []
-        | Some(lower) -> List.init lower (fun x -> x+1)
-      and forbid_upper ub =
-        match ub with
-        | None -> []
-        | Some(upper) -> List.init (10-upper) (fun x -> x+upper)
-      in
       let forbidden = (
-        if (List.length state.problem.thermo) > 0 then List.concat [(Model.filled_adj av.loc state.current_grid); forbid_lower (forbidden_thermo_lower av.loc state.problem.thermo);forbid_upper (forbidden_thermo_upper av.loc state.problem.thermo)]
+        if (List.length state.problem.thermo) > 0 then List.concat [(Model.filled_adj av.loc state.current_grid); forbidden_thermo av.loc]
+        else if (List.length state.problem.arrows) > 0 then List.concat [(Model.filled_adj av.loc state.current_grid);forbidden_arrows av.loc]
         else Model.filled_adj av.loc state.current_grid
       )
       in

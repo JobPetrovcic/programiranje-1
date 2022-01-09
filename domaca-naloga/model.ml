@@ -115,11 +115,59 @@ let deoptionalize l =
 
 let filled_adj (loc : (int * int)) (grid : int option grid) = deoptionalize (Array.to_list (Array.concat [get_my_box loc grid; get_my_row loc grid; get_my_column loc grid]))
 
-type problem = { initial_grid : int option grid; thermo : (int * int) list list }
+type problem = { initial_grid : int option grid; thermo : (int * int) list list; arrows : ((int * int) * ((int * int) list)) list}
 
 let print_problem problem : unit = print_grid (function None -> " " | Some digit -> string_of_int digit) problem.initial_grid
 
-let get_arrow str = failwith "TODO"
+let get_arrows str = 
+  let split = String.split_on_char '\n' str
+  in
+  let get_point s =
+    ((Char.code s.[1] - Char.code '0'), (Char.code s.[3] - Char.code '0'))
+  in 
+  let rec get_points lst =
+    match lst with
+    | [] -> []
+    | a :: tail -> get_point a :: (get_points tail)
+  in 
+  let sgn x =
+    if x > 0 then 1
+    else if x=0 then 0
+    else -1
+  in
+  let fill_gap (sx, sy) (ex, ey) =
+    let dx = sgn (ex-sx)
+    and dy = sgn (ey-sy)
+    in
+    let rec aux st en=
+      if st=en then []
+      else (
+        let (ox, oy)=st in
+        let nst = (ox+dx,oy+dy) in
+        nst :: (aux nst en)
+      )
+    in
+    aux (sx, sy) (ex, ey)
+  in
+  let rec expand st lst =
+    match lst with
+    | [] -> []
+    | a :: tail -> List.concat [fill_gap st a; expand a tail]
+  in
+  let check_arrow s =
+    if String.length s >=3 && String.sub s 0 3 = "A: " then (
+      let st =get_point (String.sub s 3 5) and other =get_points (String.split_on_char ';' (String.sub s 12 (String.length s - 12))) in
+      Some(st, (expand st other)))
+    else None
+  in
+  let rec aux strlst =
+    match strlst with
+    | [] -> []
+    | a :: tail -> (
+      match check_arrow (String.trim a) with 
+      | None -> aux tail
+      | Some(x) ->  x :: (aux tail))
+  in aux split
 
 let get_thermo str =
   let split = String.split_on_char '\n' str
@@ -156,7 +204,7 @@ let problem_of_string str =
   let basic_problem = String.sub str 0 basic_length and
   extra_problem = String.sub str basic_length (String.length str - basic_length)
   in
-  { initial_grid = grid_of_string cell_of_char basic_problem; thermo = get_thermo extra_problem}
+  { initial_grid = grid_of_string cell_of_char basic_problem; thermo = get_thermo extra_problem; arrows = get_arrows extra_problem}
 
 (* Model za izhodne rešitve *)
 
