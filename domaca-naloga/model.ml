@@ -130,34 +130,11 @@ let get_arrows str =
     | [] -> []
     | a :: tail -> get_point a :: (get_points tail)
   in 
-  let sgn x =
-    if x > 0 then 1
-    else if x=0 then 0
-    else -1
-  in
-  let fill_gap (sx, sy) (ex, ey) =
-    let dx = sgn (ex-sx)
-    and dy = sgn (ey-sy)
-    in
-    let rec aux st en=
-      if st=en then []
-      else (
-        let (ox, oy)=st in
-        let nst = (ox+dx,oy+dy) in
-        nst :: (aux nst en)
-      )
-    in
-    aux (sx, sy) (ex, ey)
-  in
-  let rec expand st lst =
-    match lst with
-    | [] -> []
-    | a :: tail -> List.concat [fill_gap st a; expand a tail]
-  in
   let check_arrow s =
     if String.length s >=3 && String.sub s 0 3 = "A: " then (
-      let st =get_point (String.sub s 3 5) and other =get_points (String.split_on_char ';' (String.sub s 12 (String.length s - 12))) in
-      Some(st, (expand st other)))
+      let st =get_point (String.sub s 3 5) and other =get_points (String.split_on_char ';' (String.sub s 12 (String.length s - 12))) 
+      in
+      Some(st, other))
     else None
   in
   let rec aux strlst =
@@ -236,7 +213,7 @@ let is_permutation (arr : int array) : bool =
 let rec check_list_of_arrays lst=
   match lst with
   | [] -> true
-  | (arr :: rep) -> if (is_permutation arr) then check_list_of_arrays rep else false
+  | (arr :: tail) -> if (is_permutation arr) then check_list_of_arrays tail else false
 
 let is_sub (initial : int option array) (final : int array)=
   let rec aux ind =
@@ -257,7 +234,7 @@ let valid_thermo solution thermo =
   let rec is_increasing lst =
     match lst with
     | a :: b :: tail -> (
-      let (xa, ya)= a and (xb, yb) = b in
+      let (xa, ya) = a and (xb, yb) = b in
       if solution.(xa).(ya) < solution.(xb).(yb) then is_increasing (b :: tail)
       else false
       
@@ -277,7 +254,7 @@ let valid_arrows solution arrows =
   let rec get_sum lst =
     match lst with
     | [] -> 0
-    | a :: tail -> let (x, y) =a in solution.(x).(y) + get_sum tail
+    | a :: tail -> let (x, y) = a in solution.(x).(y) + get_sum tail
   in
   let rec is_sum arrow =
     let (par, chs) = arrow 
@@ -296,7 +273,7 @@ let valid_arrows solution arrows =
   in aux arrows
 
 let is_valid_solution problem solution = 
-  let initial_rs = rows problem.initial_grid and rs= rows solution and bs = boxes solution and cs=columns solution 
+  let initial_rs = rows problem.initial_grid and rs = rows solution and bs = boxes solution and cs = columns solution 
   in 
   let valid_basic = (is_sub_list initial_rs rs && check_list_of_arrays rs && check_list_of_arrays bs && check_list_of_arrays cs)
   in

@@ -1,7 +1,5 @@
 type available = { loc : int * int; possible : int list }
 
-(* TODO: tip stanja ustrezno popravite, saj boste med reševanjem zaradi učinkovitosti
-   želeli imeti še kakšno dodatno informacijo *)
 type state = { problem : Model.problem; current_grid : int option Model.grid; unfilled : available list }
 
 let print_state (state : state) : unit =
@@ -17,24 +15,25 @@ let print_state (state : state) : unit =
 
 type response = Solved of Model.solution | Unsolved of state | Fail of state
 
-let alloptions = List.init 9 (fun x -> x+1)
+let all_options = List.init 9 (fun x -> x + 1)
 let get_options grid =
   let rec aux x y grid =
-    if x=9 then []
-    else if y=9 then aux (x+1) 0 grid
+    if x = 9 then []
+    else if y = 9 then aux (x + 1) 0 grid
     else match grid.(x).(y) with
-      | None -> {loc = (x, y); possible = alloptions} :: aux x (y+1) grid
-      | Some digit -> aux x (y+1) grid
+      | None -> {loc = (x, y); possible = all_options} :: aux x (y + 1) grid
+      | Some digit -> aux x (y + 1) grid
   in aux 0 0 grid
 
 let clean_state (state : state) : state =
   let cmp_int a b =
-    if a == b then 0
+    if a = b then 0
     else if a > b then 1
     else -1
   in
   let cmp_available (a : available) (b : available) : int =
-    let sa = List.length a.possible and sb = List.length b.possible in
+    let sa = List.length a.possible and sb = List.length b.possible
+    in
     cmp_int sa sb
   in
   (* Neuspešen poskus optimizacije
@@ -79,7 +78,7 @@ let clean_state (state : state) : state =
   let rec isin el lst = 
     match lst with
     | [] -> false
-    | a:: tail -> if(a=el) then true else isin el tail
+    | a :: tail -> if a = el then true else isin el tail
   in
   let rec clean_list lst forbidden = 
     match lst with
@@ -89,19 +88,19 @@ let clean_state (state : state) : state =
   let forbid_lower lb =
     match lb with
     | None -> []
-    | Some(lower) -> if lower<1 then [] else if lower<=9 then List.init lower (fun x -> x+1) else alloptions
+    | Some(lower) -> if lower < 1 then [] else if lower <= 9 then List.init lower (fun x -> x + 1) else all_options
   and forbid_upper ub =
     match ub with
     | None -> []
-    | Some(upper) -> if upper>9 then [] else if upper>=1 then List.init (10-upper) (fun x -> x+upper) else alloptions
+    | Some(upper) -> if upper > 9 then [] else if upper >= 1 then List.init (10 - upper) (fun x -> x + upper) else all_options
   in
   let forbidden_thermo_lower (loc : int * int) =
     let rec lower_bound loc lst_lst =
       let rec lower_bound_lst list=
         match list with
-        | a:: b :: tail -> (
+        | a :: b :: tail -> (
           let (x, y) = a in
-          if b=loc then state.current_grid.(x).(y)
+          if b = loc then state.current_grid.(x).(y)
           else lower_bound_lst (b :: tail)
         )
         | _ -> None
@@ -122,9 +121,9 @@ let clean_state (state : state) : state =
     let rec upper_bound loc lst_lst =
       let rec upper_bound_lst list=
         match list with
-        | a:: b :: tail -> (
+        | a :: b :: tail -> (
           let (x, y) = b in
-          if a=loc then state.current_grid.(x).(y)
+          if a = loc then state.current_grid.(x).(y)
           else upper_bound_lst (b :: tail)
         )
         | _ -> None
@@ -166,23 +165,24 @@ let clean_state (state : state) : state =
   in
   let forbidden_arrows (loc : int * int) =
     let only_one num =
-      if 1<=num && num<=9 then List.init 8 (fun x -> if x+1<num then x+1 else x+2)
-      else alloptions
+      if 1 <= num && num <= 9 then List.init 8 (fun x -> if x + 1 < num then x + 1 else x + 2)
+      else all_options
     in
     let check_arrow arrow =
       let (par, chs) = arrow in 
       let (x, y) = par in
-      let count_chs = List.length chs and count_chs_filled = count_filled chs and chs_sum = sum_filled chs in
-      if par=loc then (
+      let count_chs = List.length chs and count_chs_filled = count_filled chs and chs_sum = sum_filled chs 
+      in
+      if par = loc then (
         if count_chs = count_chs_filled then (only_one chs_sum)
         else (forbid_lower (Some(chs_sum)))
       )
       else if (isin loc chs) then (
         match state.current_grid.(x).(y) with
-        | None -> forbid_upper (Some( 10-chs_sum))
+        | None -> forbid_upper (Some(10 - chs_sum))
         | Some(num) -> (
-          if count_chs = count_chs_filled+1 then (only_one (num-chs_sum))
-          else forbid_upper (Some(num-chs_sum))
+          if count_chs = count_chs_filled+1 then (only_one (num - chs_sum))
+          else forbid_upper (Some(num - chs_sum))
         )
       )
       else []
@@ -200,11 +200,11 @@ let clean_state (state : state) : state =
     | av :: other_unfilled -> (
       let forbidden = (
         if (List.length state.problem.thermo) > 0 then List.concat [(Model.filled_adj av.loc state.current_grid); forbidden_thermo av.loc]
-        else if (List.length state.problem.arrows) > 0 then List.concat [(Model.filled_adj av.loc state.current_grid);forbidden_arrows av.loc]
+        else if (List.length state.problem.arrows) > 0 then List.concat [(Model.filled_adj av.loc state.current_grid); forbidden_arrows av.loc]
         else Model.filled_adj av.loc state.current_grid
       )
       in
-      {loc = av.loc; possible=(clean_list av.possible forbidden)} :: aux other_unfilled)
+      {loc = av.loc; possible = (clean_list av.possible forbidden)} :: aux other_unfilled)
   in
   {problem = state.problem; current_grid = state.current_grid; unfilled = List.sort cmp_available (aux state.unfilled)}
 
@@ -227,14 +227,17 @@ let apply (x, y) num grid =
 
 let rec branch_state (state : state) : (state * state) option =
   match state.unfilled with 
+  (* Če so vsi zapolnjeni, smo končali, in je ta rešitev zagotovo prava. *)
   | [] -> Some(state, state)
   | unfilled_square :: other_unfilled -> (
     match unfilled_square with
     | {loc=loc; possible = []} -> None
-    | {loc=loc; possible = [possibility]} -> branch_state (clean_state {problem = state.problem; current_grid = (apply loc possibility (Model.copy_grid state.current_grid)); unfilled = other_unfilled})
-    | {loc=loc; possible = possibility :: other} -> ( Some (
-        clean_state {problem = state.problem; current_grid = (apply loc possibility (Model.copy_grid state.current_grid)); unfilled = other_unfilled}, 
-        {problem = state.problem; current_grid = Model.copy_grid state.current_grid; unfilled= {loc; possible = other}:: other_unfilled})
+    | {loc=loc; possible = [possibility]} -> branch_state (
+      clean_state {problem = state.problem; current_grid = (apply loc possibility (Model.copy_grid state.current_grid)); unfilled = other_unfilled}
+    )
+    | {loc=loc; possible = possibility :: other} ->  (Some (
+      clean_state {problem = state.problem; current_grid = (apply loc possibility (Model.copy_grid state.current_grid)); unfilled = other_unfilled}, 
+      {problem = state.problem; current_grid = Model.copy_grid state.current_grid; unfilled = {loc; possible = other}:: other_unfilled})
   ))
 
 (* pogledamo, če trenutno stanje vodi do rešitve *)
